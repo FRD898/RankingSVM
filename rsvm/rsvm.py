@@ -2,7 +2,9 @@ from sklearn import svm
 import pandas as pd
 import numpy as np
 import sys
-
+import features
+import pickle
+import saveReadFiles
 def get_pairs(x, y):
     '''
     Obtiene la resta dos a dos de los documentos de respuesta una query 
@@ -28,78 +30,56 @@ def get_pairs(x, y):
             j = j + 1
         i = i + 1
 
-    return np.asarray(x2), np.asarray(y2)
+    return np.array(x2), np.array(y2)
 
-def getQueryDocumenPair():
-    #Leemos el archivo que contiene las etiquetas para cada para documento-consulta 
-    df = pd.read_csv('../data/Ohsumed/judged.txt', delimiter = "\t", names=["q_id","d_ui","d_i","r1","r2","r3"])
+def getFeaturesPairs():
+    docs_per_query = saveReadFiles.getQueryDocumenPair()
+    #docs = readDocuments()
+    queries = saveReadFiles.readQueries()
+    x_out = []
+    y_out = []
+    for pairsQD in docs_per_query:
+        #print(pairsQD)
+        x = []
+        y = []
+        for index,pairQD in pairsQD.iterrows():
+            #print("pairQD",pairQD)
+            q_id = pairQD["q_id"] 
+            d_i = pairQD["d_i"] 
+            s = pairQD["r1"]
+            q = queries[int(q_id)-1]
+            d = saveReadFiles.readDocument(int(d_i))
+            x.append(features.makeFeatures(q,d))
+            y.append(int(s))
+        x2,y2 = get_pairs(x,y)
+        x_out.append(x2)
+        y_out.append(y2)
+    return x_out,y_out
+
+def trainModel():    
+    x,y= getFeaturesPairs()
+    print("x: ",x[:2])
+    print("y: ",y[:2])
+    print(len(x))
+    print(len(y))
     
-    #Asignamos una puntuacion numérica de 0,1 o 2 a los resultados
-    df = df.replace('n', 0)
-    df = df.replace('p', 1)
-    df = df.replace('d', 2)
-    df = df.fillna(0)
+    X_data = x[0]
+    for i in range(1,len(x)):
+        X_data = np.concatenate((X_data,x[i]))
 
-    #Creamos una lista donde la i-esima posicion tendrá los documentos de respuesta al query con id i
-    list_docs_per_query = [df[df["q_id"]==i] for i in range(1,107)]
-    return list_docs_per_query
-
-def readDocuments():
-    '''
-    Cargar los documentos desde el archivo que contiene todos los documentos
-    salida: lista de documentos(diccionarios)
-    '''
-    with open("../data/Ohsumed/ohsumed.87.txt","r") as f:
-        num_lineas = 0
-        documento = {}
-        documentos = []
-        for line in f:
-            num_lineas+=1
-            if num_lineas==1:
-                documento["I"] = line.strip()   #ID del documento
-            elif num_lineas==3:
-                documento["U"] = line.strip()   #identificador Medline 
-            elif num_lineas==5:
-                documento["S"] = line.strip()   #fuente
-            elif num_lineas==7:
-                documento["M"] = line.strip()   #terminos relacionados
-            elif num_lineas==9:
-                documento["T"] = line.strip()   #titulo
-            elif num_lineas==11:
-                documento["P"] = line.strip()   #tipo de publicacion
-            elif num_lineas==13:
-                documento["W"] = line.strip()   #resumen
-            elif num_lineas==15:
-                documento["A"] = line.strip()   #autor
-                num_lineas = 0
-                documento = {}
-                documentos.append(documento)
-    return documentos
-
-def saveDocuments(docs):
-    '''
-    Metodo para guardar cada documento dentro de un txt
-    input: docs, lista de documentos, cada documentos es un diccionario
-    '''
-    for doc in docs:
-        name = doc["I"]+".txt" 
-        with open(name,"w") as f:
-            f.write(doc["I"]+"\n")
-            f.write(doc["U"]+"\n")
-            f.write(doc["S"]+"\n")
-            f.write(doc["M"]+"\n")
-            f.write(doc["T"]+"\n")
-            f.write(doc["W"]+"\n")
-            f.write(doc["A"]+"\n")
-
-def modelo():
-   x2,y2=pair(x,y)
-   svc=svm.SVC(kernel='linear').fit(x2,y2)
-   return svc
+    y_data = y[0]
+    for i in range(1,len(x)):
+        y_data = np.concatenate((y_data,y[i]))
+    pd.DataFrame(X_data).to_csv("../data/featuresPairsXtotal.csv")
+    pd.DataFrame(y_data).to_csv("../data/featuresPairsYtotal.csv")
+    #svc=svm.SVC(kernel='linear').fit(x2,y2)
+    #return svc
 
 def main():
-    #getQueryDocumenPair()
-    readDocuments()
+    #print(getQueryDocumenPair()[0])
+    #saveDocuments(readDocuments())
+    svm = trainModel()
+    #joinData()
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,8 @@
+## Check all indices
+curl http://localhost:9200/_aliases?pretty=true
+
+## get number of docs
+curl http://localhost:9200/_cat/indices?v
+
+## Search
+curl http://localhost:9200/foo/_search?pretty=true&q={'matchAll':{'feber'}}
